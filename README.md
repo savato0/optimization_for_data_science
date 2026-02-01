@@ -1,63 +1,63 @@
-# 🚀 Guida alla Gestione dell'Ambiente (Conda)
+# 🚀 Environment Management Guide (Conda)
 
-Questo repository utilizza un file `environment.yml` per gestire in modo centralizzato tutte le dipendenze del progetto. Questo file combina sia i pacchetti gestiti da **Conda** che quelli installati tramite **pip**.
+This repository uses an `environment.yml` file to centrally manage all project dependencies. This file combines both **Conda** packages and those installed via **pip**.
 
 ---
 
-## 🛠 1. Setup Iniziale (Prima volta)
+## 🛠 1. Initial Setup (First time)
 
-Se è la prima volta che cloni il repository, segui questi passaggi per creare l'ambiente:
+If this is your first time cloning the repository, follow these steps to create the environment:
 
-1. **Crea l'ambiente** partendo dal file di configurazione:
+1. **Create the environment** from the configuration file:
    ```bash
    conda env create -f environment.yml
    ```
 
-2. **Attiva l'ambiente**:
+2. **Activate the environment**:
    ```bash
    conda activate o4ds
    ```
 
 ---
 
-## 🔄 2. Aggiornare l'ambiente (Dopo un git pull)
+## 🔄 2. Updating the Environment (After a git pull)
 
-Se un altro collaboratore ha aggiunto nuove librerie e il file `environment.yml` è cambiato, sincronizza il tuo ambiente locale con questo comando:
+If another collaborator has added new libraries and the `environment.yml` file has changed, synchronize your local environment with this command:
 
 ```bash
 conda env update -f environment.yml --prune
 ```
 
 > [!TIP]
-> Il flag `--prune` è importante perché rimuove dal tuo ambiente locale i pacchetti che sono stati eliminati dal file YAML.
+> The `--prune` flag is important because it removes packages from your local environment that have been deleted from the YAML file.
 
 ---
 
-## ➕ 3. Aggiungere nuove librerie al progetto
+## ➕ 3. Adding New Libraries to the Project
 
-Se devi installare una nuova libreria per lo sviluppo, segui rigorosamente questo flusso per non "sporcare" il progetto:
+If you need to install a new library for development, strictly follow this workflow to keep the project "clean":
 
-1. **Installa la libreria nell'ambiente attivo**:
-   * Prova prima con Conda: `conda install nome_pacchetto`
-   * Se non presente sui canali Conda: `pip install nome_pacchetto`
+1. **Install the library in the active environment**:
+   * Try Conda first: `conda install package_name`
+   * If not available on Conda channels: `pip install package_name`
 
-2. **Aggiorna il file environment.yml**:
-   Invece di scriverlo a mano, esporta lo stato attuale dell'ambiente per includere le versioni corrette:
+2. **Update the environment.yml file**:
+   Instead of writing it manually, export the current state of the environment to include the correct versions:
    ```bash
    conda env export --no-builds > environment.yml
    ```
 
-3. **Invia le modifiche**:
-   Fai il commit del file `environment.yml` aggiornato e caricalo sul repository.
+3. **Submit changes**:
+   Commit the updated `environment.yml` file and push it to the repository.
 
 ---
 
-## ⚠️ Regole e Buone Pratiche
+## ⚠️ Rules and Best Practices
 
-* **Verifica l'ambiente**: Prima di installare qualsiasi cosa, assicurati che il nome dell'ambiente sia visibile tra parentesi nel terminale.
-* **Evita pip freeze**: Non creare file `requirements.txt` separati. Usiamo solo il file `.yml` per gestire tutto in un unico posto.
-* **Check del percorso Pip**: Se hai dubbi su quale pip stai usando, digita `which pip` (Mac/Linux) o `where pip` (Windows). Deve puntare alla cartella del tuo ambiente Conda attuale.
-* **Pulizia**: Se l'ambiente diventa instabile o troppo pesante, puoi eliminarlo e ricrearlo da zero:
+* **Verify the environment**: Before installing anything, make sure the environment name is visible in parentheses in your terminal.
+* **Avoid `pip freeze`**: Do not create separate `requirements.txt` files. We use only the `.yml` file to manage everything in one place.
+* **Check Pip path**: If in doubt about which pip you are using, type `which pip` (Mac/Linux) or `where pip` (Windows). It must point to your current Conda environment folder.
+* **Cleanup**: If the environment becomes unstable or too heavy, you can delete it and recreate it from scratch:
   ```bash
   conda deactivate
   conda env remove -n o4ds
