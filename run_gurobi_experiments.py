@@ -49,7 +49,7 @@ cases = [
     ,{"matrix": "Q_ill", "vector": "q_ill_sc3"}
 ]
 
-methods = [0, 1, 2]  # 0=Primal Active Set, 1=Dual Active Set, 2=Barrier
+methods = [0]  # Method 0 = Primal Simplex, as used in the report's A2 formulation
 
 # Dizionario per memorizzare i risultati
 results = []
@@ -81,7 +81,7 @@ for case in cases:
             # ==========================================
             model = gp.Model("proj_33")
             x = model.addMVar(shape=n, vtype=GRB.CONTINUOUS, lb=0.0, name="x")
-            obiettivo = 0.5 * (x.T @ Q @ x) + (q.T @ x)
+            obiettivo = (x.T @ Q @ x) + (q.T @ x)
             model.setObjective(obiettivo, GRB.MINIMIZE)
             
             # Costruiamo il vettore b di dimensione K, tutto di 1

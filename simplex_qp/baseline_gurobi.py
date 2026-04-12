@@ -21,6 +21,7 @@ class BaselineResult:
     x: np.ndarray | None
     objective: float | None
     fw_gap: float | None
+    method: int
     runtime_seconds: float
     status: str
     status_code: int | None
@@ -29,6 +30,7 @@ class BaselineResult:
     def to_dict(self, *, include_solution: bool = False) -> dict[str, object]:
         payload: dict[str, object] = {
             "status": self.status,
+            "method": self.method,
             "runtime_seconds": self.runtime_seconds,
         }
         if self.status_code is not None:
@@ -49,12 +51,14 @@ def solve_gurobi(
     *,
     log_file: str | None = None,
     output_flag: bool = False,
+    method: int = 0,
 ) -> BaselineResult:
     if gp is None or GRB is None:
         raise ImportError("gurobipy is not installed in the active Python environment.")
 
     model = gp.Model(problem.name)
     model.Params.OutputFlag = 1 if output_flag else 0
+    model.Params.Method = method
     if log_file is not None:
         model.setParam("LogFile", log_file)
 
@@ -74,6 +78,7 @@ def solve_gurobi(
             x=None,
             objective=None,
             fw_gap=None,
+            method=method,
             runtime_seconds=runtime,
             status="not_optimal",
             status_code=int(model.Status),
@@ -89,6 +94,7 @@ def solve_gurobi(
         x=solution,
         objective=float(model.ObjVal),
         fw_gap=fw_gap,
+        method=method,
         runtime_seconds=runtime,
         status="optimal",
         status_code=int(model.Status),

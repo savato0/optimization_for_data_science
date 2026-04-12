@@ -35,7 +35,9 @@ def save_partition_metadata(
         "index_base": 0,
         "dimension": partition.dimension_hint,
         "num_blocks": partition.num_blocks,
+        "num_simplices": partition.num_simplices,
         "block_sizes": list(partition.block_sizes),
+        "index_sets": [index_set.tolist() for index_set in partition.index_sets],
         "blocks": [block.tolist() for block in partition.blocks],
     }
     if extra is not None:
@@ -49,8 +51,8 @@ def load_partition_metadata(target: str | Path) -> Partition:
     path = _resolve_metadata_path(target)
     payload = json.loads(path.read_text(encoding="utf-8"))
 
-    if "blocks" in payload:
-        blocks = payload["blocks"]
+    if "index_sets" in payload or "blocks" in payload:
+        blocks = payload.get("index_sets", payload.get("blocks"))
         index_base = int(payload.get("index_base", 0))
         shifted_blocks = [
             np.asarray(block, dtype=int) - index_base for block in blocks
@@ -95,6 +97,18 @@ def load_problem(
         write_inferred_metadata=write_inferred_metadata,
     )
     return SimplexQP(Q=Q, q=q, partition=partition, name=f"{matrix_name}_{vector_name}")
+
+
+def linear_term_from_stationary_point(Q: np.ndarray, x_u: np.ndarray) -> np.ndarray:
+    """Return q = -2Qx_u so that x_u is a stationary point of f(x) = x^TQx + q^Tx."""
+
+    matrix = np.asarray(Q, dtype=float)
+    point = np.asarray(x_u, dtype=float).reshape(-1)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("Q must be a square matrix.")
+    if matrix.shape[0] != point.size:
+        raise ValueError("Q and x_u must define the same dimension.")
+    return -2.0 * (matrix @ point)
 
 
 def _load_or_infer_partition(

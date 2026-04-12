@@ -13,17 +13,17 @@ def exact_line_search(
     gradient: np.ndarray | None = None,
     atol: float = 1e-15,
 ) -> float:
-    """Minimize the quadratic objective along x + gamma * direction for gamma in [0, 1]."""
+    """Compute α_t* for x + α d with α in [0,1] using the report's closed form."""
 
     point = np.asarray(x, dtype=float).reshape(-1)
-    step_direction = np.asarray(direction, dtype=float).reshape(-1)
+    d_t = np.asarray(direction, dtype=float).reshape(-1)
     grad = problem.gradient(point) if gradient is None else np.asarray(gradient, dtype=float)
 
-    quadratic_term = float(step_direction @ problem.Q @ step_direction)
-    linear_term = float(grad @ step_direction)
+    a_t = float(d_t @ problem.Q @ d_t)
+    b_t = float(grad @ d_t)
 
-    if quadratic_term <= atol:
-        return 1.0 if linear_term < 0.0 else 0.0
+    if a_t <= atol:
+        return 1.0
 
-    gamma = -linear_term / (2.0 * quadratic_term)
-    return float(np.clip(gamma, 0.0, 1.0))
+    alpha_t = -b_t / (2.0 * a_t)
+    return float(np.clip(alpha_t, 0.0, 1.0))

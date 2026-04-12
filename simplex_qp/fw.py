@@ -24,6 +24,7 @@ class FrankWolfeResult:
     x: np.ndarray
     objective: float
     gap: float
+    lower_bound: float
     iterations: int
     runtime_seconds: float
     status: str
@@ -40,6 +41,7 @@ class FrankWolfeResult:
             "status": self.status,
             "objective": self.objective,
             "fw_gap": self.gap,
+            "lower_bound": self.lower_bound,
             "iterations": self.iterations,
             "runtime_seconds": self.runtime_seconds,
             **self.feasibility,
@@ -67,46 +69,50 @@ def solve_frank_wolfe(
     start = perf_counter()
     for iteration in range(cfg.max_iter):
         gradient = problem.gradient(x)
-        s = linear_minimization_oracle(gradient, problem.partition)
-        direction = s - x
-        gap = float(gradient @ (x - s))
+        s_t = linear_minimization_oracle(gradient, problem.partition)
+        d_t = s_t - x
+        g_t = float(gradient @ (x - s_t))
         objective = problem.objective(x)
-        step_size = 0.0
+        v_t = objective - g_t
+        alpha_t = 0.0
         feasibility = problem.feasibility_metrics(x)
 
-        if gap <= cfg.tol_gap:
+        if g_t <= cfg.tol_gap:
             status = "converged"
-            _append_history(history, iteration, objective, gap, step_size, feasibility)
+            _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
             break
 
-        step_size = exact_line_search(
+        alpha_t = exact_line_search(
             problem,
             x,
-            direction,
+            d_t,
             gradient=gradient,
         )
-        _append_history(history, iteration, objective, gap, step_size, feasibility)
-        x = x + step_size * direction
+        _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
+        x = x + alpha_t * d_t
         updates += 1
     else:
         gradient = problem.gradient(x)
-        s = linear_minimization_oracle(gradient, problem.partition)
-        gap = float(gradient @ (x - s))
+        s_t = linear_minimization_oracle(gradient, problem.partition)
+        g_t = float(gradient @ (x - s_t))
         objective = problem.objective(x)
+        v_t = objective - g_t
         feasibility = problem.feasibility_metrics(x)
-        _append_history(history, cfg.max_iter, objective, gap, 0.0, feasibility)
+        _append_history(history, cfg.max_iter, objective, g_t, v_t, 0.0, feasibility)
 
     runtime = perf_counter() - start
     gradient = problem.gradient(x)
-    s = linear_minimization_oracle(gradient, problem.partition)
-    gap = float(gradient @ (x - s))
+    s_t = linear_minimization_oracle(gradient, problem.partition)
+    g_t = float(gradient @ (x - s_t))
     objective = problem.objective(x)
+    v_t = objective - g_t
     feasibility = problem.feasibility_metrics(x)
 
     return FrankWolfeResult(
         x=x,
         objective=objective,
-        gap=gap,
+        gap=g_t,
+        lower_bound=v_t,
         iterations=updates,
         runtime_seconds=runtime,
         status=status,
@@ -133,6 +139,7 @@ def _append_history(
     iteration: int,
     objective: float,
     gap: float,
+    lower_bound: float,
     step_size: float,
     feasibility: dict[str, float],
 ) -> None:
@@ -143,7 +150,8 @@ def _append_history(
             "iteration": float(iteration),
             "objective": objective,
             "fw_gap": gap,
-            "step_size": step_size,
+            "lower_bound": lower_bound,
+            "alpha": step_size,
             **feasibility,
         }
     )

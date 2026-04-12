@@ -7,7 +7,7 @@ import numpy as np
 
 @dataclass(slots=True)
 class Partition:
-    """Disjoint blocks defining a product of simplices over zero-based indices."""
+    """Disjoint index sets I^k defining D = Δ_{I^1} x ... x Δ_{I^K}."""
 
     blocks: tuple[np.ndarray, ...]
 
@@ -43,6 +43,18 @@ class Partition:
     @property
     def num_blocks(self) -> int:
         return len(self.blocks)
+
+    @property
+    def num_simplices(self) -> int:
+        return self.num_blocks
+
+    @property
+    def K(self) -> int:
+        return self.num_blocks
+
+    @property
+    def index_sets(self) -> tuple[np.ndarray, ...]:
+        return self.blocks
 
     @property
     def block_sizes(self) -> tuple[int, ...]:
@@ -101,14 +113,17 @@ class SimplexQP:
         return int(self.q.size)
 
     def objective(self, x: np.ndarray) -> float:
+        """Evaluate f(x) = x^T Q x + q^T x."""
         point = self._as_point(x)
         return float(point @ self.Q @ point + self.q @ point)
 
     def gradient(self, x: np.ndarray) -> np.ndarray:
+        """Evaluate ∇f(x) = 2Qx + q."""
         point = self._as_point(x)
         return 2.0 * (self.Q @ point) + self.q
 
     def barycenter(self) -> np.ndarray:
+        """Return the barycenter of D, used as the default x^(0)."""
         return self.partition.barycenter(self.dimension)
 
     def feasibility_metrics(self, x: np.ndarray) -> dict[str, float]:

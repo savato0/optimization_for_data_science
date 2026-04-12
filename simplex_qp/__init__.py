@@ -4,6 +4,7 @@ from .baseline_gurobi import BaselineResult, solve_gurobi
 from .fw import FrankWolfeConfig, FrankWolfeResult, solve_frank_wolfe
 from .io import (
     infer_equal_partition,
+    linear_term_from_stationary_point,
     load_partition_metadata,
     load_problem,
     save_partition_metadata,
@@ -18,6 +19,7 @@ __all__ = [
     "Partition",
     "SimplexQP",
     "infer_equal_partition",
+    "linear_term_from_stationary_point",
     "linear_minimization_oracle",
     "load_partition_metadata",
     "load_problem",
