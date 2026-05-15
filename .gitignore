@@ -1,0 +1,7 @@
+private/
+gurobi.log
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+scripts/__pycache__
+simplex_qp/__pycache__

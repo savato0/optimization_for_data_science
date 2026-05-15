@@ -11,6 +11,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from simplex_qp import (
     FrankWolfeConfig,
+    load_initial_point,
+    load_initial_point_keys,
     load_problem,
     solve_frank_wolfe,
     solve_gurobi,
@@ -39,20 +41,53 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-iter", type=int, default=5000)
     parser.add_argument("--tol-gap", type=float, default=1e-6)
+    parser.add_argument(
+        "--x0-file",
+        help="Optional Frank-Wolfe initial_points.npz file.",
+    )
+    parser.add_argument(
+        "--x0-key",
+        action="append",
+        help="Initial point key to read from --x0-file.",
+    )
+    parser.add_argument(
+        "--all-x0",
+        action="store_true",
+        help="Run every initial point key stored in --x0-file.",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=25,
+        help="Print a Frank-Wolfe progress line every N iterations.",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Disable per-iteration Frank-Wolfe progress logging.",
+    )
     parser.add_argument("--output", help="Optional JSON output path.")
+    parser.add_argument(
+        "--include-solution",
+        action="store_true",
+        help="Include the full Frank-Wolfe solution vector in the JSON payload.",
+    )
     parser.add_argument("--gurobi-log-dir", help="Optional directory for Gurobi log files.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.all_x0 and not args.x0_file:
+        parser.error("--all-x0 requires --x0-file.")
+    if args.all_x0 and args.x0_key:
+        parser.error("--all-x0 cannot be combined with --x0-key.")
+    if args.x0_file and not args.x0_key and not args.all_x0:
+        parser.error("--x0-file requires --x0-key or --all-x0.")
+    if args.x0_key and not args.x0_file:
+        parser.error("--x0-key requires --x0-file.")
+    return args
 
 
 def main() -> None:
     args = parse_args()
-    config = FrankWolfeConfig(
-        max_iter=args.max_iter,
-        tol_gap=args.tol_gap,
-        x0="barycenter",
-        line_search="exact",
-        store_history=True,
-    )
+    x0_keys = _resolve_x0_keys(args.x0_file, args.x0_key, args.all_x0)
 
     records: list[dict[str, object]] = []
     log_dir = Path(args.gurobi_log_dir) if args.gurobi_log_dir else None
@@ -61,6 +96,7 @@ def main() -> None:
 
     for raw_case in args.case:
         matrix_name, vector_name = parse_case(raw_case)
+        print(f"[COMPARE] Loading case {matrix_name} + {vector_name}...", flush=True)
         problem = load_problem(
             args.data_folder,
             matrix_name,
@@ -70,38 +106,58 @@ def main() -> None:
             write_inferred_metadata=args.write_metadata,
         )
 
-        fw_result = solve_frank_wolfe(problem, config)
         log_file = None
         if log_dir is not None:
             log_file = str(log_dir / f"{matrix_name}_{vector_name}_gurobi.log")
         baseline_result = solve_gurobi(problem, log_file=log_file)
-
-        record = {
-            "matrix": matrix_name,
-            "vector": vector_name,
-            "frank_wolfe": fw_result.to_dict(),
-            "gurobi": baseline_result.to_dict(),
-        }
-        if baseline_result.objective is not None:
-            record["objective_difference"] = fw_result.objective - baseline_result.objective
-        records.append(record)
 
         gurobi_objective = (
             f"{baseline_result.objective:.6e}"
             if baseline_result.objective is not None
             else "nan"
         )
-        print(
-            f"[COMPARE] {matrix_name} + {vector_name}: "
-            f"FW={fw_result.objective:.6e}, "
-            f"Gurobi={gurobi_objective}"
-        )
+        for x0_key in x0_keys:
+            x0 = (
+                load_initial_point(args.x0_file, key=x0_key)
+                if args.x0_file
+                else "barycenter"
+            )
+            config = FrankWolfeConfig(
+                max_iter=args.max_iter,
+                tol_gap=args.tol_gap,
+                x0=x0,
+                line_search="exact",
+                store_history=True,
+                verbose=not args.quiet,
+                progress_every=args.progress_every,
+            )
+            fw_result = solve_frank_wolfe(problem, config)
+            fw_payload = fw_result.to_dict(include_solution=args.include_solution)
+            fw_payload["x0_key"] = x0_key
+
+            record = {
+                "matrix": matrix_name,
+                "vector": vector_name,
+                "x0_key": x0_key,
+                "frank_wolfe": fw_payload,
+                "gurobi": baseline_result.to_dict(),
+            }
+            if baseline_result.objective is not None:
+                record["objective_difference"] = fw_result.objective - baseline_result.objective
+            records.append(record)
+
+            print(
+                f"[COMPARE] {matrix_name} + {vector_name} | x0={x0_key}: "
+                f"FW={fw_result.objective:.6e}, "
+                f"Gurobi={gurobi_objective}",
+                flush=True,
+            )
 
     output_path = (
         Path(args.output) if args.output else Path(args.data_folder) / "comparison_results.json"
     )
     output_path.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
-    print(f"Saved {len(records)} comparison result(s) to {output_path}")
+    print(f"Saved {len(records)} comparison result(s) to {output_path}", flush=True)
 
 
 def parse_case(raw_case: str) -> tuple[str, str]:
@@ -111,6 +167,20 @@ def parse_case(raw_case: str) -> tuple[str, str]:
         )
     matrix_name, vector_name = raw_case.split(":", maxsplit=1)
     return matrix_name, vector_name
+
+
+def _resolve_x0_keys(
+    x0_file: str | None,
+    x0_keys: list[str] | None,
+    all_x0: bool,
+) -> list[str]:
+    if all_x0:
+        if x0_file is None:
+            raise ValueError("--all-x0 requires --x0-file.")
+        return load_initial_point_keys(x0_file)
+    if x0_keys:
+        return x0_keys
+    return ["barycenter"]
 
 
 if __name__ == "__main__":

@@ -17,6 +17,8 @@ class FrankWolfeConfig:
     x0: str | np.ndarray = "barycenter"
     line_search: str = "exact"
     store_history: bool = True
+    verbose: bool = False
+    progress_every: int = 50
 
 
 @dataclass(slots=True)
@@ -60,6 +62,8 @@ def solve_frank_wolfe(
     cfg = FrankWolfeConfig() if config is None else config
     if cfg.line_search != "exact":
         raise ValueError("Only exact line search is implemented in v1.")
+    if cfg.progress_every <= 0:
+        raise ValueError("progress_every must be strictly positive.")
 
     x = _initial_point(problem, cfg.x0)
     history: list[dict[str, float]] | None = [] if cfg.store_history else None
@@ -67,6 +71,12 @@ def solve_frank_wolfe(
     status = "max_iter"
 
     start = perf_counter()
+    if cfg.verbose:
+        print(
+            f"[FW] Starting {problem.name}: n={problem.dimension}, "
+            f"K={problem.partition.K}, max_iter={cfg.max_iter}, tol_gap={cfg.tol_gap:.1e}",
+            flush=True,
+        )
     for iteration in range(cfg.max_iter):
         gradient = problem.gradient(x)
         s_t = linear_minimization_oracle(gradient, problem.partition)
@@ -88,6 +98,18 @@ def solve_frank_wolfe(
             d_t,
             gradient=gradient,
         )
+        _log_progress(
+            problem,
+            cfg,
+            iteration=iteration,
+            objective=objective,
+            gap=g_t,
+            lower_bound=v_t,
+            alpha=alpha_t,
+            feasibility=feasibility,
+            elapsed_seconds=perf_counter() - start,
+            is_terminal=False,
+        )
         _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
         x = x + alpha_t * d_t
         updates += 1
@@ -98,6 +120,18 @@ def solve_frank_wolfe(
         objective = problem.objective(x)
         v_t = objective - g_t
         feasibility = problem.feasibility_metrics(x)
+        _log_progress(
+            problem,
+            cfg,
+            iteration=cfg.max_iter,
+            objective=objective,
+            gap=g_t,
+            lower_bound=v_t,
+            alpha=0.0,
+            feasibility=feasibility,
+            elapsed_seconds=perf_counter() - start,
+            is_terminal=True,
+        )
         _append_history(history, cfg.max_iter, objective, g_t, v_t, 0.0, feasibility)
 
     runtime = perf_counter() - start
@@ -107,6 +141,19 @@ def solve_frank_wolfe(
     objective = problem.objective(x)
     v_t = objective - g_t
     feasibility = problem.feasibility_metrics(x)
+    if cfg.verbose and status == "converged":
+        _log_progress(
+            problem,
+            cfg,
+            iteration=updates,
+            objective=objective,
+            gap=g_t,
+            lower_bound=v_t,
+            alpha=0.0,
+            feasibility=feasibility,
+            elapsed_seconds=runtime,
+            is_terminal=True,
+        )
 
     return FrankWolfeResult(
         x=x,
@@ -132,6 +179,38 @@ def _initial_point(problem: SimplexQP, x0: str | np.ndarray) -> np.ndarray:
     if not problem.is_feasible(x):
         raise ValueError("The initial point must be feasible for the product of simplices.")
     return x.copy()
+
+
+def _log_progress(
+    problem: SimplexQP,
+    cfg: FrankWolfeConfig,
+    *,
+    iteration: int,
+    objective: float,
+    gap: float,
+    lower_bound: float,
+    alpha: float,
+    feasibility: dict[str, float],
+    elapsed_seconds: float,
+    is_terminal: bool,
+) -> None:
+    if not cfg.verbose:
+        return
+
+    should_print = is_terminal or iteration == 0 or (iteration + 1) % cfg.progress_every == 0
+    if not should_print:
+        return
+
+    label = "final" if is_terminal else f"iter {iteration + 1}"
+    print(
+        f"[FW] {problem.name} | {label}: "
+        f"f={objective:.6e}, gap={gap:.3e}, lower_bound={lower_bound:.6e}, "
+        f"alpha={alpha:.3e}, "
+        f"block_err={feasibility['max_block_sum_error']:.1e}, "
+        f"nonneg_err={feasibility['max_nonnegativity_violation']:.1e}, "
+        f"elapsed={elapsed_seconds:.2f}s",
+        flush=True,
+    )
 
 
 def _append_history(

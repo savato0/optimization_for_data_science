@@ -21,7 +21,12 @@ class GurobiComparisonTests(unittest.TestCase):
             problem,
             FrankWolfeConfig(max_iter=25, tol_gap=1e-12, store_history=True),
         )
-        baseline_result = solve_gurobi(problem)
+        try:
+            baseline_result = solve_gurobi(problem)
+        except Exception as exc:
+            if exc.__class__.__name__ == "GurobiError":
+                self.skipTest(f"Gurobi is not available: {exc}")
+            raise
 
         self.assertEqual(fw_result.status, "converged")
         self.assertEqual(baseline_result.status, "optimal")

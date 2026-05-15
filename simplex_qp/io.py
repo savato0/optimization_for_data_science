@@ -99,6 +99,37 @@ def load_problem(
     return SimplexQP(Q=Q, q=q, partition=partition, name=f"{matrix_name}_{vector_name}")
 
 
+def load_initial_point(path: str | Path, *, key: str) -> np.ndarray:
+    """Load a named initial point from the project initial_points.npz file."""
+
+    source = Path(path)
+    _validate_initial_points_path(source)
+    if not key:
+        raise ValueError("An initial point key is required when loading from .npz.")
+
+    archive = np.load(source)
+    try:
+        values = archive[key]
+    except KeyError as exc:
+        available = ", ".join(archive.files)
+        raise KeyError(f"Initial point '{key}' was not found in {source}. Available: {available}") from exc
+    return np.asarray(values, dtype=float).reshape(-1)
+
+
+def load_initial_point_keys(path: str | Path) -> list[str]:
+    """Return the initial point keys stored in the project initial_points.npz file."""
+
+    source = Path(path)
+    _validate_initial_points_path(source)
+    archive = np.load(source)
+    return list(archive.files)
+
+
+def _validate_initial_points_path(path: Path) -> None:
+    if path.suffix.lower() != ".npz":
+        raise ValueError("Initial points must be loaded from a .npz file.")
+
+
 def linear_term_from_stationary_point(Q: np.ndarray, x_u: np.ndarray) -> np.ndarray:
     """Return q = -2Qx_u so that x_u is a stationary point of f(x) = x^TQx + q^Tx."""
 
