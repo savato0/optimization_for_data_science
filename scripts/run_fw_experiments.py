@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -67,6 +68,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output", help="Optional JSON output path.")
     parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help=(
+            "Start a fresh output file instead of resuming from an existing one. "
+            "By default, existing records are kept and matching matrix/vector/x0 runs are skipped."
+        ),
+    )
+    parser.add_argument(
         "--include-solution",
         action="store_true",
         help="Include the full solution vector in the JSON payload.",
@@ -86,10 +95,39 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     x0_keys = _resolve_x0_keys(args.x0_file, args.x0_key, args.all_x0)
+    output_path = Path(args.output) if args.output else Path(args.data_folder) / "fw_results.json"
 
-    records: list[dict[str, object]] = []
+    if args.overwrite:
+        records: list[dict[str, Any]] = []
+        _write_records(output_path, records)
+        print(f"[FW] Starting fresh output file at {output_path}", flush=True)
+    else:
+        records = _load_existing_records(output_path)
+        if records:
+            print(
+                f"[FW] Resuming from {output_path}: {len(records)} existing result(s).",
+                flush=True,
+            )
+        else:
+            _write_records(output_path, records)
+            print(f"[FW] Writing checkpoints to {output_path}", flush=True)
+
+    completed_runs = {_record_key(record) for record in records}
     for raw_case in args.case:
         matrix_name, vector_name = parse_case(raw_case)
+        pending_x0_keys = [
+            x0_key
+            for x0_key in x0_keys
+            if (matrix_name, vector_name, x0_key) not in completed_runs
+        ]
+        if not pending_x0_keys:
+            print(
+                f"[FW] Skipping {matrix_name} + {vector_name}: "
+                "all requested x0 keys are already saved.",
+                flush=True,
+            )
+            continue
+
         print(f"[FW] Loading case {matrix_name} + {vector_name}...", flush=True)
         problem = load_problem(
             args.data_folder,
@@ -99,7 +137,7 @@ def main() -> None:
             num_blocks=args.num_blocks,
             write_inferred_metadata=args.write_metadata,
         )
-        for x0_key in x0_keys:
+        for x0_key in pending_x0_keys:
             x0 = (
                 load_initial_point(args.x0_file, key=x0_key)
                 if args.x0_file
@@ -123,6 +161,8 @@ def main() -> None:
                 **result.to_dict(include_solution=args.include_solution),
             }
             records.append(record)
+            completed_runs.add(_record_key(record))
+            _write_records(output_path, records)
             print(
                 f"[FW] {matrix_name} + {vector_name} | x0={x0_key}: "
                 f"status={result.status}, objective={result.objective:.6e}, "
@@ -130,9 +170,11 @@ def main() -> None:
                 f"runtime={result.runtime_seconds:.4f}s",
                 flush=True,
             )
+            print(
+                f"[FW] Checkpoint saved: {len(records)} result(s) in {output_path}",
+                flush=True,
+            )
 
-    output_path = Path(args.output) if args.output else Path(args.data_folder) / "fw_results.json"
-    output_path.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
     print(f"Saved {len(records)} Frank-Wolfe result(s) to {output_path}", flush=True)
 
 
@@ -157,6 +199,37 @@ def _resolve_x0_keys(
     if x0_keys:
         return x0_keys
     return ["barycenter"]
+
+
+def _load_existing_records(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError(f"Expected {path} to contain a JSON list.")
+
+    records: list[dict[str, Any]] = []
+    for record in payload:
+        if not isinstance(record, dict):
+            raise ValueError(f"Expected every record in {path} to be a JSON object.")
+        records.append(record)
+    return records
+
+
+def _write_records(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f"{path.name}.tmp")
+    temporary_path.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+    temporary_path.replace(path)
+
+
+def _record_key(record: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(record.get("matrix")),
+        str(record.get("vector")),
+        str(record.get("x0_key", "barycenter")),
+    )
 
 
 if __name__ == "__main__":
