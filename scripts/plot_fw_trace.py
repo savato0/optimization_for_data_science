@@ -120,6 +120,7 @@ class TracePlotter:
                     f"iteration: {_format_value(point.get('iteration'))}",
                     f"objective: {_format_value(point.get('objective'))}",
                     f"fw_gap: {_format_value(point.get('fw_gap'))}",
+                    f"rel_gap: {_format_value(point.get('relative_fw_gap'))}",
                     f"alpha: {_format_value(point.get('alpha'))}",
                     f"dist ref: {_format_value(point.get('distance_to_reference'))}",
                     f"dist x_u: {_format_value(point.get('distance_to_xu'))}",

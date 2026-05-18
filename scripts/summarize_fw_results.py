@@ -17,6 +17,7 @@ BASE_TABLE_COLUMNS = [
     "alpha_iter0",
     "objective",
     "fw_gap",
+    "relative_fw_gap",
     "iterations",
     "runtime_seconds",
 ]
@@ -37,6 +38,7 @@ HISTORY_COLUMNS = [
     "iteration",
     "objective",
     "fw_gap",
+    "relative_fw_gap",
     "lower_bound",
     "alpha",
 ]
@@ -293,6 +295,7 @@ def flatten_history(
                     "iteration": entry.get("iteration"),
                     "objective": entry.get("objective"),
                     "fw_gap": entry.get("fw_gap"),
+                    "relative_fw_gap": entry.get("relative_fw_gap"),
                     "lower_bound": entry.get("lower_bound"),
                     "alpha": entry.get("alpha"),
                 }

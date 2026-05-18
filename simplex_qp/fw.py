@@ -15,6 +15,7 @@ from .trace import TraceProjector
 class FrankWolfeConfig:
     max_iter: int = 5000
     tol_gap: float = 1e-6
+    tol_rel_gap: float | None = None
     x0: str | np.ndarray = "barycenter"
     line_search: str = "exact"
     store_history: bool = True
@@ -29,6 +30,7 @@ class FrankWolfeResult:
     x: np.ndarray
     objective: float
     gap: float
+    relative_gap: float
     lower_bound: float
     iterations: int
     runtime_seconds: float
@@ -48,6 +50,7 @@ class FrankWolfeResult:
             "status": self.status,
             "objective": self.objective,
             "fw_gap": self.gap,
+            "relative_fw_gap": self.relative_gap,
             "lower_bound": self.lower_bound,
             "iterations": self.iterations,
             "runtime_seconds": self.runtime_seconds,
@@ -71,6 +74,10 @@ def solve_frank_wolfe(
         raise ValueError("Only exact line search is implemented in v1.")
     if cfg.progress_every <= 0:
         raise ValueError("progress_every must be strictly positive.")
+    if cfg.tol_gap < 0:
+        raise ValueError("tol_gap must be non-negative.")
+    if cfg.tol_rel_gap is not None and cfg.tol_rel_gap < 0:
+        raise ValueError("tol_rel_gap must be non-negative when provided.")
     if cfg.trace_every <= 0:
         raise ValueError("trace_every must be strictly positive.")
 
@@ -95,13 +102,23 @@ def solve_frank_wolfe(
         d_t = s_t - x
         g_t = float(gradient @ (x - s_t))
         objective = problem.objective(x)
+        relative_g_t = relative_gap(g_t, objective)
         v_t = objective - g_t
         alpha_t = 0.0
         feasibility = problem.feasibility_metrics(x)
 
-        if g_t <= cfg.tol_gap:
+        if _has_converged(g_t, relative_g_t, cfg):
             status = "converged"
-            _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
+            _append_history(
+                history,
+                iteration,
+                objective,
+                g_t,
+                relative_g_t,
+                v_t,
+                alpha_t,
+                feasibility,
+            )
             _append_projected_trace(
                 projected_trace,
                 cfg,
@@ -109,6 +126,7 @@ def solve_frank_wolfe(
                 x,
                 objective,
                 g_t,
+                relative_g_t,
                 v_t,
                 alpha_t,
                 force=True,
@@ -127,13 +145,23 @@ def solve_frank_wolfe(
             iteration=iteration,
             objective=objective,
             gap=g_t,
+            relative_gap=relative_g_t,
             lower_bound=v_t,
             alpha=alpha_t,
             feasibility=feasibility,
             elapsed_seconds=perf_counter() - start,
             is_terminal=False,
         )
-        _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
+        _append_history(
+            history,
+            iteration,
+            objective,
+            g_t,
+            relative_g_t,
+            v_t,
+            alpha_t,
+            feasibility,
+        )
         _append_projected_trace(
             projected_trace,
             cfg,
@@ -141,6 +169,7 @@ def solve_frank_wolfe(
             x,
             objective,
             g_t,
+            relative_g_t,
             v_t,
             alpha_t,
         )
@@ -151,6 +180,7 @@ def solve_frank_wolfe(
         s_t = linear_minimization_oracle(gradient, problem.partition)
         g_t = float(gradient @ (x - s_t))
         objective = problem.objective(x)
+        relative_g_t = relative_gap(g_t, objective)
         v_t = objective - g_t
         feasibility = problem.feasibility_metrics(x)
         _log_progress(
@@ -159,13 +189,23 @@ def solve_frank_wolfe(
             iteration=cfg.max_iter,
             objective=objective,
             gap=g_t,
+            relative_gap=relative_g_t,
             lower_bound=v_t,
             alpha=0.0,
             feasibility=feasibility,
             elapsed_seconds=perf_counter() - start,
             is_terminal=True,
         )
-        _append_history(history, cfg.max_iter, objective, g_t, v_t, 0.0, feasibility)
+        _append_history(
+            history,
+            cfg.max_iter,
+            objective,
+            g_t,
+            relative_g_t,
+            v_t,
+            0.0,
+            feasibility,
+        )
         _append_projected_trace(
             projected_trace,
             cfg,
@@ -173,6 +213,7 @@ def solve_frank_wolfe(
             x,
             objective,
             g_t,
+            relative_g_t,
             v_t,
             0.0,
             force=True,
@@ -183,6 +224,7 @@ def solve_frank_wolfe(
     s_t = linear_minimization_oracle(gradient, problem.partition)
     g_t = float(gradient @ (x - s_t))
     objective = problem.objective(x)
+    relative_g_t = relative_gap(g_t, objective)
     v_t = objective - g_t
     feasibility = problem.feasibility_metrics(x)
     if cfg.verbose and status == "converged":
@@ -192,6 +234,7 @@ def solve_frank_wolfe(
             iteration=updates,
             objective=objective,
             gap=g_t,
+            relative_gap=relative_g_t,
             lower_bound=v_t,
             alpha=0.0,
             feasibility=feasibility,
@@ -203,6 +246,7 @@ def solve_frank_wolfe(
         x=x,
         objective=objective,
         gap=g_t,
+        relative_gap=relative_g_t,
         lower_bound=v_t,
         iterations=updates,
         runtime_seconds=runtime,
@@ -233,6 +277,7 @@ def _log_progress(
     iteration: int,
     objective: float,
     gap: float,
+    relative_gap: float,
     lower_bound: float,
     alpha: float,
     feasibility: dict[str, float],
@@ -249,7 +294,8 @@ def _log_progress(
     label = "final" if is_terminal else f"iter {iteration + 1}"
     print(
         f"[FW] {problem.name} | {label}: "
-        f"f={objective:.6e}, gap={gap:.3e}, lower_bound={lower_bound:.6e}, "
+        f"f={objective:.6e}, gap={gap:.3e}, rel_gap={relative_gap:.3e}, "
+        f"lower_bound={lower_bound:.6e}, "
         f"alpha={alpha:.3e}, "
         f"block_err={feasibility['max_block_sum_error']:.1e}, "
         f"nonneg_err={feasibility['max_nonnegativity_violation']:.1e}, "
@@ -263,6 +309,7 @@ def _append_history(
     iteration: int,
     objective: float,
     gap: float,
+    rel_gap: float,
     lower_bound: float,
     step_size: float,
     feasibility: dict[str, float],
@@ -274,6 +321,7 @@ def _append_history(
             "iteration": float(iteration),
             "objective": objective,
             "fw_gap": gap,
+            "relative_fw_gap": rel_gap,
             "lower_bound": lower_bound,
             "alpha": step_size,
             **feasibility,
@@ -288,6 +336,7 @@ def _append_projected_trace(
     x: np.ndarray,
     objective: float,
     gap: float,
+    rel_gap: float,
     lower_bound: float,
     step_size: float,
     *,
@@ -303,8 +352,25 @@ def _append_projected_trace(
             "iteration": float(iteration),
             "objective": objective,
             "fw_gap": gap,
+            "relative_fw_gap": rel_gap,
             "lower_bound": lower_bound,
             "alpha": step_size,
             **cfg.trace_projector.project(x),
         }
     )
+
+
+def relative_gap(gap: float, objective: float) -> float:
+    return float(gap / max(1.0, abs(objective)))
+
+
+def _has_converged(
+    gap: float,
+    rel_gap: float,
+    cfg: FrankWolfeConfig,
+) -> bool:
+    if gap <= cfg.tol_gap:
+        return True
+    if cfg.tol_rel_gap is not None and rel_gap <= cfg.tol_rel_gap:
+        return True
+    return False

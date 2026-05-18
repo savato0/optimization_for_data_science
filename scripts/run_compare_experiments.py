@@ -46,6 +46,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-iter", type=int, default=5000)
     parser.add_argument("--tol-gap", type=float, default=1e-6)
     parser.add_argument(
+        "--tol-rel-gap",
+        type=float,
+        help=(
+            "Optional relative Frank-Wolfe gap tolerance. "
+            "Converges when fw_gap/max(1, abs(objective)) is below this value."
+        ),
+    )
+    parser.add_argument(
         "--x0-file",
         help="Optional Frank-Wolfe initial_points.npz file.",
     )
@@ -129,6 +137,7 @@ def main() -> None:
             config = FrankWolfeConfig(
                 max_iter=args.max_iter,
                 tol_gap=args.tol_gap,
+                tol_rel_gap=args.tol_rel_gap,
                 x0=x0,
                 line_search="exact",
                 store_history=True,

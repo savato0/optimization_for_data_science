@@ -35,6 +35,7 @@ class SummarizeFwResultsTests(unittest.TestCase):
                             "status": "converged",
                             "objective": -1.0,
                             "fw_gap": 1e-7,
+                            "relative_fw_gap": 1e-7,
                             "iterations": 10,
                             "runtime_seconds": 0.1,
                             "history": [
@@ -255,6 +256,7 @@ class SummarizeFwResultsTests(unittest.TestCase):
         self.assertIn("max_iter", table)
         self.assertIn("f_iter1", table)
         self.assertIn("alpha_iter0", table)
+        self.assertIn("relative_fw_gap", table)
 
     def test_filter_records_by_case_and_x0_key(self) -> None:
         records = [
@@ -328,6 +330,7 @@ class SummarizeFwResultsTests(unittest.TestCase):
                         "iteration": 0.0,
                         "objective": 1.0,
                         "fw_gap": 2.0,
+                        "relative_fw_gap": 0.5,
                         "lower_bound": -1.0,
                         "alpha": 1.0,
                     }
@@ -342,6 +345,7 @@ class SummarizeFwResultsTests(unittest.TestCase):
                         "iteration": 0.0,
                         "objective": 3.0,
                         "fw_gap": 4.0,
+                        "relative_fw_gap": 0.25,
                         "lower_bound": -1.0,
                         "alpha": 1.0,
                     }
@@ -354,7 +358,9 @@ class SummarizeFwResultsTests(unittest.TestCase):
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["x0_key"], "vertex_0")
+        self.assertEqual(rows[0]["relative_fw_gap"], 0.5)
         self.assertIn("iteration", table)
+        self.assertIn("relative_fw_gap", table)
         self.assertIn("vertex_0", table)
         self.assertIn("0  ", table)
         self.assertNotIn("0.000000e+00", table)

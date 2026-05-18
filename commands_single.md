@@ -37,6 +37,7 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --x0-key vertex_0 \
   --max-iter 10000 \
   --tol-gap 1e-6 \
+  --tol-rel-gap 1e-6 \
   --quiet \
   --include-solution \
   --save-projected-trace \
@@ -76,8 +77,7 @@ python scripts/summarize_fw_results.py \
 Visualizzare la trace interattiva:
 
 ```bash
-python scripts/plot_fw_trace.py \
-  private/dim_n10000_k100/results/traces/fw_trace_Q_well_q_well_sc2_vertex_0.json
+python scripts/plot_fw_trace.py private/dim_n10000_k100/results/traces/fw_trace_Q_well_q_well_sc2_vertex_0.json
 ```
 
 ## Variante Senza Gurobi
@@ -91,6 +91,7 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --x0-key vertex_0 \
   --max-iter 10000 \
   --tol-gap 1e-6 \
+  --tol-rel-gap 1e-8 \
   --quiet \
   --include-solution \
   --save-projected-trace \
@@ -106,3 +107,4 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
 - Se un file Gurobi esiste già ma era stato creato senza soluzioni, rigeneralo con `--overwrite` oppure usa un nuovo file di output.
 - `--save-projected-trace` salva file leggeri in `results/traces` senza inserire i vettori `x_t` completi nel JSON principale.
 - `--trace-every 10` salva un punto ogni 10 iterazioni; usare `--trace-every 1` per problemi piccoli se vuoi vedere ogni iterazione.
+- `--tol-gap` è assoluta; `--tol-rel-gap` usa `fw_gap / max(1, abs(objective))`.

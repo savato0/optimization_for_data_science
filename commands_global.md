@@ -47,6 +47,7 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --all-x0 \
   --max-iter 10000 \
   --tol-gap 1e-6 \
+  --tol-rel-gap 1e-6 \
   --quiet \
   --include-solution \
   --overwrite \
@@ -150,3 +151,4 @@ python scripts/summarize_fw_results.py \
 - `--overwrite` su FW/Gurobi cancella il file di output indicato e ricomincia da zero.
 - Senza `--overwrite`, FW/Gurobi fanno resume e saltano i record già presenti.
 - Per avere `distance_to_xu`, FW deve essere stato lanciato con `--include-solution`.
+- `--tol-gap` è assoluta; `--tol-rel-gap` usa `fw_gap / max(1, abs(objective))`.

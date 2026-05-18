@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from simplex_qp.fw import FrankWolfeConfig, solve_frank_wolfe
+from simplex_qp.fw import FrankWolfeConfig, relative_gap, solve_frank_wolfe
 from simplex_qp.io import linear_term_from_stationary_point
 from simplex_qp.problem import Partition, SimplexQP
 from simplex_qp.trace import make_trace_projector
@@ -54,11 +54,35 @@ class FrankWolfeSolverTests(unittest.TestCase):
 
         self.assertEqual(result.status, "converged")
         self.assertLessEqual(result.gap, config.tol_gap)
+        self.assertAlmostEqual(
+            result.relative_gap,
+            relative_gap(result.gap, result.objective),
+        )
         self.assertIsNotNone(result.history)
         history = result.history or []
         self.assertGreater(history[0]["fw_gap"], result.gap)
+        self.assertIn("relative_fw_gap", history[0])
         self.assertAlmostEqual(result.objective - result.lower_bound, result.gap, places=12)
         np.testing.assert_allclose(result.x, np.array([1.0, 0.0, 1.0, 0.0]))
+
+    def test_relative_gap_tolerance_can_stop_before_absolute_gap(self) -> None:
+        problem = SimplexQP(
+            Q=np.zeros((4, 4)),
+            q=np.array([1000.0, 1001.0, 1000.0, 1001.0]),
+            partition=self.partition,
+        )
+        config = FrankWolfeConfig(
+            max_iter=25,
+            tol_gap=1e-12,
+            tol_rel_gap=1e-3,
+            store_history=True,
+        )
+
+        result = solve_frank_wolfe(problem, config)
+
+        self.assertEqual(result.status, "converged")
+        self.assertGreater(result.gap, config.tol_gap)
+        self.assertLessEqual(result.relative_gap, config.tol_rel_gap or 0.0)
 
     def test_linear_term_matches_report_stationary_point_formula(self) -> None:
         Q = np.diag([1.0, 2.0, 3.0, 4.0])
@@ -93,6 +117,7 @@ class FrankWolfeSolverTests(unittest.TestCase):
         self.assertEqual([entry["iteration"] for entry in projected_trace], [0.0, 2.0, 4.0])
         self.assertIn("coord_1", projected_trace[0])
         self.assertIn("coord_2", projected_trace[0])
+        self.assertIn("relative_fw_gap", projected_trace[0])
         self.assertNotIn("x", projected_trace[0])
 
 
