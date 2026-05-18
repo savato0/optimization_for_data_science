@@ -8,6 +8,7 @@ import numpy as np
 from .line_search import exact_line_search
 from .oracle import linear_minimization_oracle
 from .problem import SimplexQP
+from .trace import TraceProjector
 
 
 @dataclass(slots=True)
@@ -19,6 +20,8 @@ class FrankWolfeConfig:
     store_history: bool = True
     verbose: bool = False
     progress_every: int = 50
+    trace_projector: TraceProjector | None = None
+    trace_every: int = 1
 
 
 @dataclass(slots=True)
@@ -32,12 +35,14 @@ class FrankWolfeResult:
     status: str
     feasibility: dict[str, float]
     history: list[dict[str, float]] | None = None
+    projected_trace: list[dict[str, float]] | None = None
 
     def to_dict(
         self,
         *,
         include_history: bool = True,
         include_solution: bool = False,
+        include_projected_trace: bool = False,
     ) -> dict[str, object]:
         payload: dict[str, object] = {
             "status": self.status,
@@ -50,6 +55,8 @@ class FrankWolfeResult:
         }
         if include_history and self.history is not None:
             payload["history"] = self.history
+        if include_projected_trace and self.projected_trace is not None:
+            payload["projected_trace"] = self.projected_trace
         if include_solution:
             payload["x"] = self.x.tolist()
         return payload
@@ -64,9 +71,14 @@ def solve_frank_wolfe(
         raise ValueError("Only exact line search is implemented in v1.")
     if cfg.progress_every <= 0:
         raise ValueError("progress_every must be strictly positive.")
+    if cfg.trace_every <= 0:
+        raise ValueError("trace_every must be strictly positive.")
 
     x = _initial_point(problem, cfg.x0)
     history: list[dict[str, float]] | None = [] if cfg.store_history else None
+    projected_trace: list[dict[str, float]] | None = (
+        [] if cfg.trace_projector is not None else None
+    )
     updates = 0
     status = "max_iter"
 
@@ -90,6 +102,17 @@ def solve_frank_wolfe(
         if g_t <= cfg.tol_gap:
             status = "converged"
             _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
+            _append_projected_trace(
+                projected_trace,
+                cfg,
+                iteration,
+                x,
+                objective,
+                g_t,
+                v_t,
+                alpha_t,
+                force=True,
+            )
             break
 
         alpha_t = exact_line_search(
@@ -111,6 +134,16 @@ def solve_frank_wolfe(
             is_terminal=False,
         )
         _append_history(history, iteration, objective, g_t, v_t, alpha_t, feasibility)
+        _append_projected_trace(
+            projected_trace,
+            cfg,
+            iteration,
+            x,
+            objective,
+            g_t,
+            v_t,
+            alpha_t,
+        )
         x = x + alpha_t * d_t
         updates += 1
     else:
@@ -133,6 +166,17 @@ def solve_frank_wolfe(
             is_terminal=True,
         )
         _append_history(history, cfg.max_iter, objective, g_t, v_t, 0.0, feasibility)
+        _append_projected_trace(
+            projected_trace,
+            cfg,
+            cfg.max_iter,
+            x,
+            objective,
+            g_t,
+            v_t,
+            0.0,
+            force=True,
+        )
 
     runtime = perf_counter() - start
     gradient = problem.gradient(x)
@@ -165,6 +209,7 @@ def solve_frank_wolfe(
         status=status,
         feasibility=feasibility,
         history=history,
+        projected_trace=projected_trace,
     )
 
 
@@ -232,5 +277,34 @@ def _append_history(
             "lower_bound": lower_bound,
             "alpha": step_size,
             **feasibility,
+        }
+    )
+
+
+def _append_projected_trace(
+    projected_trace: list[dict[str, float]] | None,
+    cfg: FrankWolfeConfig,
+    iteration: int,
+    x: np.ndarray,
+    objective: float,
+    gap: float,
+    lower_bound: float,
+    step_size: float,
+    *,
+    force: bool = False,
+) -> None:
+    if projected_trace is None or cfg.trace_projector is None:
+        return
+    if not force and iteration % cfg.trace_every != 0:
+        return
+
+    projected_trace.append(
+        {
+            "iteration": float(iteration),
+            "objective": objective,
+            "fw_gap": gap,
+            "lower_bound": lower_bound,
+            "alpha": step_size,
+            **cfg.trace_projector.project(x),
         }
     )

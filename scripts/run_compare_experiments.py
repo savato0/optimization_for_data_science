@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from simplex_qp import (
     FrankWolfeConfig,
+    default_results_folder,
     load_initial_point,
     load_initial_point_keys,
     load_problem,
@@ -21,7 +22,10 @@ from simplex_qp import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare Frank-Wolfe against the Gurobi baseline.")
-    parser.add_argument("data_folder", help="Folder containing matrices.npz and vectors.npz.")
+    parser.add_argument(
+        "data_folder",
+        help="Problem folder containing data/ or the data folder containing matrices.npz and vectors.npz.",
+    )
     parser.add_argument(
         "--case",
         action="append",
@@ -154,7 +158,9 @@ def main() -> None:
             )
 
     output_path = (
-        Path(args.output) if args.output else Path(args.data_folder) / "comparison_results.json"
+        Path(args.output)
+        if args.output
+        else default_results_folder(args.data_folder) / "comparison_results.json"
     )
     output_path.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
     print(f"Saved {len(records)} comparison result(s) to {output_path}", flush=True)

@@ -5,6 +5,7 @@ import numpy as np
 from simplex_qp.fw import FrankWolfeConfig, solve_frank_wolfe
 from simplex_qp.io import linear_term_from_stationary_point
 from simplex_qp.problem import Partition, SimplexQP
+from simplex_qp.trace import make_trace_projector
 
 
 class FrankWolfeSolverTests(unittest.TestCase):
@@ -67,6 +68,32 @@ class FrankWolfeSolverTests(unittest.TestCase):
         problem = SimplexQP(Q=Q, q=q, partition=self.partition)
 
         np.testing.assert_allclose(problem.gradient(x_u), np.zeros_like(x_u))
+
+    def test_projected_trace_is_sampled_without_storing_iterates(self) -> None:
+        problem = SimplexQP(
+            Q=np.diag([1.0, 2.0, 3.0, 4.0]),
+            q=np.array([-4.0, -1.0, -3.0, -0.5]),
+            partition=self.partition,
+        )
+        x0 = problem.barycenter()
+        projector = make_trace_projector(x0, xu=np.array([1.0, 0.0, 1.0, 0.0]))
+        config = FrankWolfeConfig(
+            max_iter=4,
+            tol_gap=0.0,
+            x0=x0,
+            store_history=True,
+            trace_projector=projector,
+            trace_every=2,
+        )
+
+        result = solve_frank_wolfe(problem, config)
+
+        self.assertIsNotNone(result.projected_trace)
+        projected_trace = result.projected_trace or []
+        self.assertEqual([entry["iteration"] for entry in projected_trace], [0.0, 2.0, 4.0])
+        self.assertIn("coord_1", projected_trace[0])
+        self.assertIn("coord_2", projected_trace[0])
+        self.assertNotIn("x", projected_trace[0])
 
 
 if __name__ == "__main__":

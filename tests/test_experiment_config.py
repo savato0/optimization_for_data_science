@@ -18,12 +18,12 @@ class ExperimentConfigTests(unittest.TestCase):
                         "n": 12,
                         "k": 3,
                         "seed": 42,
-                            "initial_points": {
-                                "num_canonical_vertices": 4,
-                                "num_random_vertices": 2,
-                                "num_random_feasible": 5,
-                                "seed": 7,
-                            },
+                        "initial_points": {
+                            "num_canonical_vertices": 4,
+                            "num_random_vertices": 2,
+                            "num_random_feasible": 5,
+                            "seed": 7,
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -37,6 +37,10 @@ class ExperimentConfigTests(unittest.TestCase):
         self.assertEqual(config.block_size, 4)
         self.assertEqual(config.initial_points.num_random_vertices, 2)
         self.assertEqual(config.initial_points.num_random_feasible, 5)
+        self.assertEqual(config.problem_folder, Path(tmpdir) / "toy")
+        self.assertEqual(config.data_folder, Path(tmpdir) / "toy" / "data")
+        self.assertEqual(config.results_folder, Path(tmpdir) / "toy" / "results")
+        self.assertEqual(config.summaries_folder, Path(tmpdir) / "toy" / "summaries")
         self.assertEqual(partition.block_sizes, (4, 4, 4))
 
     def test_load_problem_config_uses_explicit_dimension_name_by_default(self) -> None:
@@ -50,7 +54,17 @@ class ExperimentConfigTests(unittest.TestCase):
             config = load_problem_config(path)
 
         self.assertEqual(config.name, "dim_n1000_k100")
-        self.assertEqual(config.data_folder, Path(tmpdir) / "dim_n1000_k100")
+        self.assertEqual(config.problem_folder, Path(tmpdir) / "dim_n1000_k100")
+        self.assertEqual(config.data_folder, Path(tmpdir) / "dim_n1000_k100" / "data")
+
+    def test_load_problem_config_uses_private_as_default_data_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "problem_config.json"
+            path.write_text(json.dumps({"n": 1000, "k": 100}), encoding="utf-8")
+
+            config = load_problem_config(path)
+
+        self.assertEqual(config.problem_folder, Path("private") / "dim_n1000_k100")
 
     def test_load_problem_config_requires_divisible_n_and_k(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

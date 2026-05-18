@@ -38,8 +38,20 @@ class ProblemConfig:
         return (self.block_size,) * self.k
 
     @property
-    def data_folder(self) -> Path:
+    def problem_folder(self) -> Path:
         return self.data_root / self.name
+
+    @property
+    def data_folder(self) -> Path:
+        return self.problem_folder / "data"
+
+    @property
+    def results_folder(self) -> Path:
+        return self.problem_folder / "results"
+
+    @property
+    def summaries_folder(self) -> Path:
+        return self.problem_folder / "summaries"
 
 
 def load_problem_config(path: str | Path = DEFAULT_PROBLEM_CONFIG_PATH) -> ProblemConfig:
@@ -70,7 +82,7 @@ def load_problem_config(path: str | Path = DEFAULT_PROBLEM_CONFIG_PATH) -> Probl
         raise ValueError("num_random_feasible must be non-negative.")
 
     name = str(payload.get("name", _default_problem_name(n, k)))
-    data_root = Path(payload.get("data_root", "private/data"))
+    data_root = Path(payload.get("data_root", "private"))
     return ProblemConfig(
         name=name,
         data_root=data_root,

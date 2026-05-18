@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from simplex_qp import Partition, load_partition_metadata
+from simplex_qp import Partition, load_partition_metadata, resolve_problem_data_folder
 
 
 TARGET_COLUMNS = [
@@ -25,7 +25,10 @@ TARGET_COLUMNS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize x_u targets used to generate q vectors.")
-    parser.add_argument("data_folder", help="Folder containing targets.npz and partition.json.")
+    parser.add_argument(
+        "data_folder",
+        help="Problem folder containing data/ or the data folder containing targets.npz and partition.json.",
+    )
     parser.add_argument(
         "--targets-file",
         help="Optional explicit path to targets.npz. Defaults to DATA_FOLDER/targets.npz.",
@@ -53,7 +56,7 @@ def load_target_records(
     targets_file: str | Path | None = None,
     metadata_path: str | Path | None = None,
 ) -> list[dict[str, Any]]:
-    folder = Path(data_folder)
+    folder = resolve_problem_data_folder(data_folder)
     target_path = Path(targets_file) if targets_file is not None else folder / "targets.npz"
     partition = load_partition_metadata(metadata_path if metadata_path is not None else folder)
 

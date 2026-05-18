@@ -38,6 +38,21 @@ class SummarizeTargetsTests(unittest.TestCase):
         self.assertEqual(records[0]["negative_count"], 0)
         self.assertEqual(records[1]["negative_count"], 2)
 
+    def test_load_target_records_accepts_problem_root_with_data_subfolder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "dim_n4_k2"
+            data_folder = root / "data"
+            data_folder.mkdir(parents=True)
+            save_partition_metadata(data_folder, Partition.from_block_sizes([2, 2]))
+            np.savez(
+                data_folder / "targets.npz",
+                x_u_sc1=np.array([0.5, 0.5, 0.25, 0.75]),
+            )
+
+            records = load_target_records(root)
+
+        self.assertEqual([record["target"] for record in records], ["x_u_sc1"])
+
     def test_format_table_includes_expected_columns(self) -> None:
         table = format_table(
             [

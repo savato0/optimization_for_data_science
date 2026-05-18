@@ -38,6 +38,8 @@ def main() -> None:
     partition = partition_from_config(config)
     data_folder = config.data_folder
     data_folder.mkdir(parents=True, exist_ok=True)
+    config.results_folder.mkdir(parents=True, exist_ok=True)
+    config.summaries_folder.mkdir(parents=True, exist_ok=True)
     save_partition_metadata(
         data_folder,
         partition,

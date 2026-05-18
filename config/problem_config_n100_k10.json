@@ -1,6 +1,6 @@
 {
-  "n": 10000,
-  "k": 100,
+  "n": 100,
+  "k": 10,
   "seed": 42,
   "initial_points": {
     "num_canonical_vertices": 3,

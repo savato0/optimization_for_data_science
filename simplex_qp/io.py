@@ -9,6 +9,8 @@ from .problem import Partition, SimplexQP
 
 
 DEFAULT_METADATA_FILENAMES = ("partition.json", "problem_metadata.json", "metadata.json")
+DATA_SUBDIR = "data"
+RESULTS_SUBDIR = "results"
 
 
 def infer_equal_partition(n: int, num_blocks: int) -> Partition:
@@ -74,7 +76,7 @@ def load_problem(
     num_blocks: int | None = None,
     write_inferred_metadata: bool = False,
 ) -> SimplexQP:
-    folder = Path(data_folder)
+    folder = resolve_problem_data_folder(data_folder)
     matrices_path = folder / "matrices.npz"
     vectors_path = folder / "vectors.npz"
 
@@ -142,6 +144,33 @@ def linear_term_from_stationary_point(Q: np.ndarray, x_u: np.ndarray) -> np.ndar
     return -2.0 * (matrix @ point)
 
 
+def resolve_problem_data_folder(target: str | Path) -> Path:
+    """Return the folder that contains matrices.npz and vectors.npz.
+
+    Accepts either the new problem root layout, e.g. dim_n100_k10/, or the
+    data subfolder itself, e.g. dim_n100_k10/data/.
+    """
+
+    path = Path(target)
+    if (path / "matrices.npz").exists() or (path / "vectors.npz").exists():
+        return path
+    nested_data = path / DATA_SUBDIR
+    if nested_data.exists():
+        return nested_data
+    return path
+
+
+def resolve_problem_root(target: str | Path) -> Path:
+    path = Path(target)
+    if path.name == DATA_SUBDIR:
+        return path.parent
+    return path
+
+
+def default_results_folder(target: str | Path) -> Path:
+    return resolve_problem_root(target) / RESULTS_SUBDIR
+
+
 def _load_or_infer_partition(
     folder: Path,
     n: int,
@@ -177,6 +206,12 @@ def _resolve_metadata_path(target: str | Path) -> Path:
         candidate = path / filename
         if candidate.exists():
             return candidate
+    data_candidate = path / DATA_SUBDIR
+    if data_candidate.exists():
+        for filename in DEFAULT_METADATA_FILENAMES:
+            candidate = data_candidate / filename
+            if candidate.exists():
+                return candidate
     raise FileNotFoundError(
         f"No partition metadata found under {path}. Expected one of: "
         + ", ".join(DEFAULT_METADATA_FILENAMES)
