@@ -12,9 +12,9 @@ DEFAULT_PROBLEM_CONFIG_PATH = Path("config/problem_config.json")
 
 @dataclass(frozen=True, slots=True)
 class InitialPointsConfig:
-    num_canonical_vertices: int = 10
-    num_random_vertices: int = 20
-    num_random_feasible: int = 0
+    num_canonical_vertices: int = 3
+    num_random_vertices: int = 3
+    num_random_feasible: int = 3
     seed: int = 0
 
 

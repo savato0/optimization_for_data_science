@@ -14,7 +14,6 @@ from simplex_qp import (
     load_problem_config,
     partition_from_config,
     save_initial_points,
-    save_partition_metadata,
 )
 
 
@@ -40,14 +39,6 @@ def main() -> None:
     data_folder.mkdir(parents=True, exist_ok=True)
     config.results_folder.mkdir(parents=True, exist_ok=True)
     config.summaries_folder.mkdir(parents=True, exist_ok=True)
-    save_partition_metadata(
-        data_folder,
-        partition,
-        extra={
-            "source": "problem_config",
-            "problem_config": str(Path(args.config)),
-        },
-    )
 
     points = generate_initial_points(
         partition,
