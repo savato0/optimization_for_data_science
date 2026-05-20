@@ -6,9 +6,20 @@ Esempio sotto per:
 
 ```text
 private/dim_n10000_k100
+max_iter = 10000
+tol_gap = 1e-6
+tol_rel_gap = 1e-6
 ```
 
 Cambiare la cartella se si lavora su un'altra dimensione.
+
+Convenzione usata nei nomi dei file FW:
+
+```text
+iter10000_gap1e-6_relgap1e-6
+```
+
+Se cambi `--max-iter`, `--tol-gap` o `--tol-rel-gap`, cambia anche questo pezzo nel nome dei file.
 
 ## 1. Generazione Dati
 
@@ -51,7 +62,7 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --quiet \
   --include-solution \
   --overwrite \
-  --output private/dim_n10000_k100/results/fw_all_x0_results.json
+  --output private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json
 ```
 
 ## 3. Summary FW Globale
@@ -60,20 +71,20 @@ Summary completo:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_all_x0_results.json \
+  private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --output private/dim_n10000_k100/summaries/fw_summary_all.txt
+  --output private/dim_n10000_k100/summaries/fw_summary_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.txt
 ```
 
 History di una singola esecuzione già contenuta nel file completo:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_all_x0_results.json \
+  private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json \
   --case Q_well:q_well_sc1 \
   --x0-key vertex_0 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --output private/dim_n10000_k100/summaries/fw_result_q_well_sc1_vertex_0.txt \
+  --output private/dim_n10000_k100/summaries/fw_history_q_well_sc1_vertex_0_iter10000_gap1e-6_relgap1e-6.txt \
   --history
 ```
 
@@ -90,10 +101,10 @@ python scripts/run_gurobi_baseline.py private/dim_n10000_k100 \
   --case Q_ill:q_ill_sc2 \
   --case Q_ill:q_ill_sc3 \
   --include-solution \
-  --output private/dim_n10000_k100/results/gurobi_baseline.json
+  --output private/dim_n10000_k100/results/gurobi_all_cases_with_solution.json
 ```
 
-Se `gurobi_baseline.json` esiste già e vuoi rigenerarlo includendo le soluzioni complete:
+Se `gurobi_all_cases_with_solution.json` esiste già e vuoi rigenerarlo includendo le soluzioni complete:
 
 ```bash
 python scripts/run_gurobi_baseline.py private/dim_n10000_k100 \
@@ -105,7 +116,7 @@ python scripts/run_gurobi_baseline.py private/dim_n10000_k100 \
   --case Q_ill:q_ill_sc3 \
   --include-solution \
   --overwrite \
-  --output private/dim_n10000_k100/results/gurobi_baseline.json
+  --output private/dim_n10000_k100/results/gurobi_all_cases_with_solution.json
 ```
 
 ## 5. Confronto FW Salvato Vs Gurobi
@@ -114,33 +125,33 @@ Confronto completo:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_all_x0_results.json \
+  private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --gurobi-file private/dim_n10000_k100/results/gurobi_baseline.json \
-  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_summary_all.txt
+  --gurobi-file private/dim_n10000_k100/results/gurobi_all_cases_with_solution.json \
+  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.txt
 ```
 
 Solo una coppia `Q:q`:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_all_x0_results.json \
+  private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json \
   --case Q_well:q_well_sc2 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --gurobi-file private/dim_n10000_k100/results/gurobi_baseline.json \
-  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_q_well_sc2.txt
+  --gurobi-file private/dim_n10000_k100/results/gurobi_all_cases_with_solution.json \
+  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_q_well_sc2_all_x0_iter10000_gap1e-6_relgap1e-6.txt
 ```
 
 Una coppia `Q:q` e un solo `x0`:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_all_x0_results.json \
+  private/dim_n10000_k100/results/fw_all_cases_all_x0_iter10000_gap1e-6_relgap1e-6.json \
   --case Q_well:q_well_sc2 \
   --x0-key vertex_0 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --gurobi-file private/dim_n10000_k100/results/gurobi_baseline.json \
-  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_q_well_sc2_vertex_0.txt
+  --gurobi-file private/dim_n10000_k100/results/gurobi_all_cases_with_solution.json \
+  --output private/dim_n10000_k100/summaries/fw_vs_gurobi_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6.txt
 ```
 
 ## Note

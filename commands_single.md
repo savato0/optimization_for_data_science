@@ -8,9 +8,20 @@ Esempio sotto per:
 private/dim_n10000_k100
 Q_well:q_well_sc2
 vertex_0
+max_iter = 10000
+tol_gap = 1e-6
+tol_rel_gap = 1e-6
 ```
 
-Cambiare cartella, caso e `x0-key` se si lavora su un'altra esecuzione.
+Cambiare cartella, caso, `x0-key` e parametri FW se si lavora su un'altra esecuzione.
+
+Convenzione usata nei nomi dei file FW:
+
+```text
+q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6
+```
+
+Se cambi `Q:q`, `x0-key`, `--max-iter`, `--tol-gap` o `--tol-rel-gap`, cambia anche questo pezzo nel nome dei file.
 
 ## 1. Baseline Gurobi Del Caso
 
@@ -42,10 +53,11 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --include-solution \
   --save-projected-trace \
   --trace-every 10 \
+  --trace-output-dir private/dim_n10000_k100/results/traces/q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
   --gurobi-file private/dim_n10000_k100/results/gurobi_q_well_sc2_with_solution.json \
   --overwrite \
-  --output private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0.json
+  --output private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6.json
 ```
 
 ## 3. Summary Del Caso
@@ -54,21 +66,21 @@ Summary finale:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0.json \
+  private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6.json \
   --targets-file private/dim_n10000_k100/data/targets.npz \
   --gurobi-file private/dim_n10000_k100/results/gurobi_q_well_sc2_with_solution.json \
-  --output private/dim_n10000_k100/summaries/fw_q_well_sc2_vertex_0_summary.txt
+  --output private/dim_n10000_k100/summaries/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6_summary.txt
 ```
 
 History completa:
 
 ```bash
 python scripts/summarize_fw_results.py \
-  private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0.json \
+  private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6.json \
   --case Q_well:q_well_sc2 \
   --x0-key vertex_0 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
-  --output private/dim_n10000_k100/summaries/fw_q_well_sc2_vertex_0_history.txt \
+  --output private/dim_n10000_k100/summaries/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6_history.txt \
   --history
 ```
 
@@ -77,7 +89,7 @@ python scripts/summarize_fw_results.py \
 Visualizzare la trace interattiva:
 
 ```bash
-python scripts/plot_fw_trace.py private/dim_n10000_k100/results/traces/fw_trace_Q_well_q_well_sc2_vertex_0.json
+python scripts/plot_fw_trace.py private/dim_n10000_k100/results/traces/q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-6/fw_trace_Q_well_q_well_sc2_vertex_0.json
 ```
 
 ## Variante Senza Gurobi
@@ -96,9 +108,10 @@ python scripts/run_fw_experiments.py private/dim_n10000_k100 \
   --include-solution \
   --save-projected-trace \
   --trace-every 10 \
+  --trace-output-dir private/dim_n10000_k100/results/traces/q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-8 \
   --targets-file private/dim_n10000_k100/data/targets.npz \
   --overwrite \
-  --output private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0.json
+  --output private/dim_n10000_k100/results/fw_q_well_sc2_vertex_0_iter10000_gap1e-6_relgap1e-8.json
 ```
 
 ## Note
